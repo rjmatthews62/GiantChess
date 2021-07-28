@@ -1,0 +1,103 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Default Local Group
+  m_EditorClassIdentifier: 
+  m_GroupName: Default Local Group
+  m_Data:
+    m_SerializedData: []
+  m_GUID: 09e16753e7027684a9ba287eda2c2030
+  m_SerializeEntries:
+  - m_GUID: c85e0a9d9cd087c49ab0350892fbb498
+    m_Address: Assets/Sprites/fire.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    m_MainAsset: {fileID: 0}
+    m_TargetAsset: {fileID: 0}
+  - m_GUID: 8a1b608eab0601f4eb04f05df00cc16a
+    m_Address: Assets/Sprites/RookB.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    m_MainAsset: {fileID: 0}
+    m_TargetAsset: {fileID: 0}
+  - m_GUID: 875c3a5697812994faa8fc41802f8fa9
+    m_Address: Assets/Sprites/BishopW.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    m_MainAsset: {fileID: 0}
+    m_TargetAsset: {fileID: 0}
+  - m_GUID: 0126c5111fd36b64c872716afd40d46b
+    m_Address: Assets/Sprites/QueenW.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    m_MainAsset: {fileID: 0}
+    m_TargetAsset: {fileID: 0}
+  - m_GUID: 5535a8d4debb1084b821475c68864a12
+    m_Address: Assets/Sprites/KnightB.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    m_MainAsset: {fileID: 0}
+    m_TargetAsset: {fileID: 0}
+  - m_GUID: 6b14681fc485ddc4e9243c48d393008c
+    m_Address: Assets/Sprites/QueenB.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    m_MainAsset: {fileID: 0}
+    m_TargetAsset: {fileID: 0}
+  - m_GUID: ef07eee68d9bd994386dacf2a6c1e741
+    m_Address: Assets/Sprites/PawnB.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    m_MainAsset: {fileID: 0}
+    m_TargetAsset: {fileID: 0}
+  - m_GUID: fa836bed5fbb07d41967f4ac42e18810
+    m_Address: Assets/Sprites/BishopB.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    m_MainAsset: {fileID: 0}
+    m_TargetAsset: {fileID: 0}
+  - m_GUID: 3f26dee5a3400d046acb9f92414cace1
+    m_Address: Assets/Sprites/RookW.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    m_MainAsset: {fileID: 0}
+    m_TargetAsset: {fileID: 0}
+  - m_GUID: 0db9fb845c2f8734a8271c0ccc24ed45
+    m_Address: Assets/Sprites/KnightW.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    m_MainAsset: {fileID: 0}
+    m_TargetAsset: {fileID: 0}
+  - m_GUID: 111aba5af6d6efa43859954a5193f5cf
+    m_Address: Assets/Sprites/KingW.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    m_MainAsset: {fileID: 0}
+    m_TargetAsset: {fileID: 0}
+  - m_GUID: d3ee64f3fb3b23a48a14f715e9e95f32
+    m_Address: Assets/Sprites/PawnW.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    m_MainAsset: {fileID: 0}
+    m_TargetAsset: {fileID: 0}
+  - m_GUID: bf64130ffdd89da45be8bb5066982098
+    m_Address: Assets/Sprites/KingB.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    m_MainAsset: {fileID: 0}
+    m_TargetAsset: {fileID: 0}
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: fd682721d4a17c445a91b18d3e1c7fcd, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 5fa54af6ca8952947b9943e05028edda, type: 2}
+    - {fileID: 11400000, guid: 85b47ad2f3a4fed4ea86ad9c0ff229e3, type: 2}
