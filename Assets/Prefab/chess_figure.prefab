@@ -100,6 +100,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bang: {fileID: 8300000, guid: e9d7bac4f4740eb4a87a529d932c3513, type: 3}
+  clunk: {fileID: 8300000, guid: 235ef3e157c1ab845a56adbb6852ee65, type: 3}
+  runner: {fileID: 0}
+  isMoving: 0
+  isFalling: 1
 --- !u!54 &7409174415484717050
 Rigidbody:
   m_ObjectHideFlags: 0
