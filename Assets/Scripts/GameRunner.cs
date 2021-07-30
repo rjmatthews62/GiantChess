@@ -13,6 +13,7 @@ public class GameRunner : MonoBehaviour
 {
 
     public GameObject target;
+    public Canvas gameUI;
 
     private Sprite mySprite = null;
     private AsyncOperationHandle<Sprite> h;
@@ -21,6 +22,10 @@ public class GameRunner : MonoBehaviour
     private List<GameObject> chessPieces = new List<GameObject>();
     public const float SquareSize = 6;
     public const float ChessSpeed = 6;
+
+    public bool useThread = false;
+
+
     string[] pieces = {"PawnW","KnightW","RookW","BishopW","QueenW","KingW",
                        "PawnB","KnightB","RookB","BishopB","QueenB","KingB"};
     string[] layout = {"Rook","Knight","Bishop","King","Queen","Bishop","Knight","Rook",
@@ -34,6 +39,7 @@ public class GameRunner : MonoBehaviour
     public delegate void GameMessage(GameObject thing);
 
     ChessLogic myLogic = new ChessLogic();
+    AiState myState = null;
 
     public class Move
     {
@@ -66,17 +72,27 @@ public class GameRunner : MonoBehaviour
                 square.transform.localScale = new Vector3(SquareSize, 0.1f, SquareSize);
                 square.transform.Translate(new Vector3(SquarePos(x), 0, SquarePos(y)), Space.World);
                 square.GetComponent<Renderer>().material.color = (white ? Color.white : Color.black);
-                square.tag="board";
-                square.name=$"Board{x}{y}";
+                square.tag = "board";
+                square.name = $"Board{x}{y}";
                 white = !white;
             }
         }
         populated = true;
         chess_reference = GameObject.Find("chess");
         //PopulateMoveList();
-        endGame=GameObject.Find("EndGame");
-        gameover=GameObject.Find("GameOver");
+        endGame = GameObject.Find("EndGame");
+        gameover = GameObject.Find("GameOver");
         endGame.SetActive(false);
+#if UNITY_WEBGL
+        useThread = false;
+#else
+        useThread = true;
+#endif
+#if UNITY_ANDROID
+        gameUI.gameObject.SetActive(true);
+#else         
+        gameUI.gameObject.SetActive(false);
+#endif
 
         StartCoroutine("loadPieces", 5f);
     }
@@ -218,12 +234,8 @@ public class GameRunner : MonoBehaviour
                 StartCoroutine("loadPieces");
             }
             if (Keyboard.current.escapeKey.wasPressedThisFrame) Application.Quit(); // ESC - Quit
-            if (Keyboard.current.rKey.wasPressedThisFrame) // R - Reload
-            {
-                Scene scene = SceneManager.GetActiveScene();
-                SceneManager.LoadScene(scene.name);
+            if (Keyboard.current.rKey.wasPressedThisFrame) DoRestart(); // R - Reload
 
-            }
             if (Keyboard.current.tKey.wasPressedThisFrame) TakePiece(FindTarget(), RemovePiece); // T - Take a random piece
             if (Keyboard.current.mKey.wasPressedThisFrame) DoMovePiece(); // M - next move.
         }
@@ -243,23 +255,55 @@ public class GameRunner : MonoBehaviour
             movelist.RemoveAt(0);
             ExecuteMove(move);
         }*/
-        myLogic.AiMoveThreaded(myLogic.player, myLogic.boardPos, 1);
+        if (useThread)
+        {
+            print("Calculating move (in thread)");
+            myLogic.AiMoveThreaded(myLogic.player, myLogic.boardPos, 1);
+        }
+        else
+        {
+            print("Calculating move (state machine)");
+            myState = myLogic.AiMoveState(myLogic.player, myLogic.boardPos, 1);
+
+        }
+
     }
 
-    public void ProcessMove() {
-        if (!myLogic.threadReady) return;
+    public void DoRestart()
+    {
+        Scene scene = SceneManager.GetActiveScene();
+        SceneManager.LoadScene(scene.name);
 
-        var result = myLogic.threadResult;
-        myLogic.threadReady=false;
+    }
+
+    public void ProcessMove()
+    {
+        AiResult result;
+        if (useThread)
+        {
+            if (!myLogic.threadReady) return;
+
+            result = myLogic.threadResult;
+            myLogic.threadReady = false;
+
+        }
+        else
+        {
+            if (myState == null) return;
+            if (!myLogic.AiMoveNext(ref myState)) return;
+            result = myState.result;
+            myState = null;
+        }
+
         if (result.success)
         {
-            myLogic.ExecuteMove(result.from.AsMove(),result.dest.AsMove());
+            myLogic.ExecuteMove(result.from.AsMove(), result.dest.AsMove());
             ExecuteMove(new Move(result.from.AsIndex(), result.dest.AsIndex()));
         }
         else
         {
-            string message="Game Over\n"+(myLogic.isCheck() ? "Checkmate" : "Draw");
-            gameover.GetComponent<Text>().text=message;
+            string message = "Game Over\n" + (myLogic.isCheck() ? "Checkmate" : "Draw");
+            gameover.GetComponent<Text>().text = message;
             endGame.SetActive(true);
         }
     }
@@ -334,10 +378,7 @@ public class GameRunner : MonoBehaviour
 
     public void DoTakePiece()
     {
-        if (chessPieces.Count > 0)
-        {
-            TakePiece(chessPieces[dice(chessPieces.Count)], RemovePiece);
-        }
+        TakePiece(FindTarget(), RemovePiece);
     }
 
 
@@ -362,7 +403,7 @@ public class GameRunner : MonoBehaviour
         yield return new WaitForSeconds(timeout);
         for (int i = 0; i < 64; i++)
         {
-            string aname="?";
+            string aname = "?";
             AsyncOperationHandle<Sprite> hh;
             string piece = myLogic.boardPos.Substring(i, 1);
             if (piece != " ")
@@ -403,13 +444,13 @@ public class GameRunner : MonoBehaviour
         ChessHandler script = thing.GetComponent<ChessHandler>();
         script.square = square;
         script.runner = this;
-        script.isFalling=true;
+        script.isFalling = true;
         r.sprite = sprite;
         Vector3 scale = thing.transform.localScale;
         scale.y *= height;
         thing.transform.localScale = scale;
         thing.name = aname;
-        thing.tag="piece";
+        thing.tag = "piece";
         chessPieces.Add(thing);
         return thing;
     }

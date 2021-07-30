@@ -38,19 +38,21 @@ public class ChessHandler : MonoBehaviour
     {
         GameObject o = collision.gameObject;
         AudioSource sound = GetComponent<AudioSource>();
-       print($"{gameObject.name} entered collision with {o.name} {o.tag} vel = {collision.relativeVelocity}");
+        if (collision.gameObject.tag != "board") print($"{gameObject.name} entered collision with {o.name} {o.tag} vel = {collision.relativeVelocity}");
         if (collision.gameObject.name.StartsWith("Player"))
         {
             GameObject player = collision.gameObject;
-            Vector3 pos = player.transform.position;
+            Collider collider = player.GetComponent<Collider>();
+            Vector3 pos = collider.transform.position;
             pos.y=-6f;
-            player.transform.position = pos;
+            collider.transform.position = pos;
         }
         else if (collision.gameObject.tag == "board")
         {
+            if (isFalling) sound.Stop();
             isFalling = false;
-            sound.Stop();
-            sound.PlayOneShot(bang);
+            //print($"Speed={collision.relativeVelocity.y}");
+            if (Mathf.Abs(collision.relativeVelocity.y)>=2) sound.PlayOneShot(bang);
         }
         else sound.PlayOneShot(clunk);
 
@@ -94,18 +96,23 @@ public class ChessHandler : MonoBehaviour
 
     IEnumerator Moving(Vector2 target)
     {
+        yield return new WaitForFixedUpdate();
         isMoving = true;
         Rigidbody body = GetComponent<Rigidbody>();
-        body.isKinematic = true;
+        //body.isKinematic = true;
+        body.useGravity=false;
         float moveAmt = 0;
         float destHeight = 2f;
         if (gameObject.name.StartsWith("Kni")) destHeight = 6f;
-        while (moveAmt < destHeight)
+        destHeight+=body.position.y;
+        body.velocity=new Vector3(0,GameRunner.ChessSpeed,0);
+        body.constraints=RigidbodyConstraints.None;
+        while ( body.position.y < destHeight)
         {
-            float delta = GameRunner.ChessSpeed * Time.deltaTime;
+            float delta = GameRunner.ChessSpeed * Time.fixedDeltaTime;
             moveAmt += delta;
-            transform.Translate(Vector3.up * delta);
-            yield return null;
+//            transform.Translate(Vector3.up * delta);
+            yield return new WaitForFixedUpdate();
         }
         while (true)
         {
@@ -117,12 +124,20 @@ public class ChessHandler : MonoBehaviour
                 takePiece.DoStartFalling(runner.RemovePiece);
                 takePiece = null;
             }
+            Vector2 vel = (target-current).normalized;
+            vel*=GameRunner.ChessSpeed; 
+            body.velocity = new Vector3(vel.x,0,vel.y);
+            //print($"Forward {body.velocity}");
 
-            Vector2 tmp = Vector2.Lerp(current, target, (GameRunner.ChessSpeed / distance) * Time.deltaTime);
-            transform.position = new Vector3(tmp.x, transform.position.y, tmp.y);
-            yield return null;
+            //Vector2 tmp = Vector2.Lerp(current, target, (GameRunner.ChessSpeed / distance) * Time.fixedDeltaTime);
+            //transform.position = new Vector3(tmp.x, transform.position.y, tmp.y);
+            yield return new WaitForFixedUpdate();
         };
-        body.isKinematic = false;
+        body.velocity=Vector3.zero;
+        body.constraints=RigidbodyConstraints.FreezePositionX|RigidbodyConstraints.FreezePositionZ;
+
+        //body.isKinematic = false;
+        body.useGravity=true;
         yield return new WaitForSeconds(3);
         isMoving = false;
         runner.DoMovePiece();

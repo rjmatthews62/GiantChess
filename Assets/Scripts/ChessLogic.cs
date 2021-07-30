@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
+
 
 namespace RoughChess
 {
@@ -45,7 +46,7 @@ namespace RoughChess
     public class Move
     {
         public int x, y;
-        public Move(int x,int y)
+        public Move(int x, int y)
         {
             this.x = x;
             this.y = y;
@@ -57,9 +58,16 @@ namespace RoughChess
         public Position from;
         public Position dest;
         public int score;
-        public bool success=false;
+        public bool success = false;
         public DateTime started;
 
+        public AiResult()
+        {
+            score = 0;
+            dest = null;
+            from = null;
+            success = false;
+        }
         public AiResult(Position from, Position dest, int score)
         {
             this.from = from;
@@ -75,10 +83,36 @@ namespace RoughChess
         }
     }
 
+    public class AiState
+    {
+        internal List<Move> possibles = new List<Move>();
+        public int bestScore = 0;
+        public int player;
+        public string board;
+        public int lookAhead;
+        public int boardLocation = 0;
+        public int currentScore = 0;
+        public AiResult result = null;
+        internal List<int> moves = null;
+
+        internal void AddMove(int score, Move m)
+        {
+
+            if (possibles.Count == 0 || score > bestScore)
+            {
+                possibles.Clear();
+                possibles.Add(m);
+                bestScore = score;
+            }
+            else if (score == bestScore) possibles.Add(m);
+        }
+
+    }
+
     class ChessLogic
     {
         // list of pieces and associated imaged. Using uppercase for white, lowercase for black.
-        public readonly Dictionary<string, string> pieces = new Dictionary<string,string>()
+        public readonly Dictionary<string, string> pieces = new Dictionary<string, string>()
         {
             {"k", "KingB" },
             {"q", "QueenB"},
@@ -113,10 +147,12 @@ namespace RoughChess
         //bool moveMade = false;
         public string movemessage = ""; // Specific details on why a move would be illegal.
         public readonly List<string> movelist = new List<string>();
-        readonly Random random = new Random();
+        readonly System.Random random = new System.Random();
 
-        public bool threadReady=false;
+        public bool threadReady = false;
         public AiResult threadResult;
+
+        private List<AiResult> enumLevels = new List<AiResult>();
 
         public ChessLogic()
         {
@@ -184,46 +220,49 @@ namespace RoughChess
         {
             if (!pos.IsValid()) return false;
             AddResult(result, pos);
-            if (IsEnemy(piece, pos,aBoard) || IsFriendly(piece, pos,aBoard)) return false;
+            if (IsEnemy(piece, pos, aBoard) || IsFriendly(piece, pos, aBoard)) return false;
             return true;
         }
 
-        public void AiMoveThreaded(int aPlayer, string aBoard, int lookAhead) {
-            threadReady=false;
-            Thread thread = new Thread(() => {
-                threadResult=AiMove(aPlayer,aBoard,lookAhead);
-                threadReady=true;
+        public void AiMoveThreaded(int aPlayer, string aBoard, int lookAhead)
+        {
+            threadReady = false;
+            Thread thread = new Thread(() =>
+            {
+                threadResult = AiMove(aPlayer, aBoard, lookAhead);
+                threadReady = true;
 
             });
             thread.Start();
         }
+
 
         public AiResult AiMove(int aPlayer, string aBoard, int lookAhead)
         {
             List<Move> possibles = new List<Move>();
             int bestScore = 0;
 
-            string saveBoard = aBoard;
-            for (int i=0; i<64; i++)
+            for (int i = 0; i < 64; i++)
             {
                 Position fpos = IndexXY(i);
-                if (IsFriendly(aPlayer,aBoard,fpos))
+                if (IsFriendly(aPlayer, aBoard, fpos))
                 {
                     String piece = aBoard.Substring(i, 1);
-                    var moves=GenerateMoves(piece, i, aPlayer, false,aBoard);
+                    var moves = GenerateMoves(piece, i, aPlayer, false, aBoard);
                     foreach (int n in moves)
                     {
-                        string brd = PerformMove(aPlayer,i,n,aBoard);
+                        string brd = PerformMove(aPlayer, i, n, aBoard);
                         if (String.IsNullOrEmpty(brd)) continue; // Illegal move, possibly check.
                         int score = ScorePosition(aPlayer, brd);
-                        if (lookAhead>0)
+                        if (lookAhead > 0)
                         {
                             int otherPlayer = (player + 1) % 2;
                             AiResult r = AiMove(otherPlayer, brd, lookAhead - 1);
                             if (r.success)
                             {
                                 score -= r.score;
-                            } else
+                            }
+                            else
                             {
                                 if (CheckCheck(otherPlayer, brd)) score += 999; // Checkmate.
                                 else score -= 10; // Draw is less desirable...
@@ -239,7 +278,7 @@ namespace RoughChess
                     }
                 }
             }
-            if (possibles.Count == 0) return new AiResult(0,0,0); // No moves. Check or Stalemate.
+            if (possibles.Count == 0) return new AiResult(0, 0, 0); // No moves. Check or Stalemate.
             int pick = random.Next(possibles.Count);
             Move m = possibles[pick];
             AiResult result = new AiResult(m.x, m.y, bestScore);
@@ -247,7 +286,72 @@ namespace RoughChess
             return result;
         }
 
-        public bool isCheck() {
+        public AiState AiMoveState(int aPlayer, string aBoard, int lookAhead)
+        {
+            AiState result = new AiState();
+            result.player = aPlayer;
+            result.board = aBoard;
+            result.lookAhead = lookAhead;
+            AiMoveNext(ref result);
+            return result;
+        }
+
+        public bool AiMoveNext(ref AiState state)
+        {
+            while (state.boardLocation < 64)
+            {
+                int i = state.boardLocation;
+                Position fpos = IndexXY(i);
+                if (IsFriendly(state.player, state.board, fpos))
+                {
+                    String piece = state.board.Substring(i, 1);
+                    if (state.moves == null) state.moves = GenerateMoves(piece, i, state.player, false, state.board);
+                    int counter=1;
+                    while (state.moves.Count > 0)
+                    {
+                        int n = state.moves[0];
+                        state.moves.RemoveAt(0);
+                        string brd = PerformMove(state.player, i, n, state.board);
+                        if (String.IsNullOrEmpty(brd)) continue; // Illegal move, possibly check.
+                        int score = ScorePosition(state.player, brd);
+                        if (state.lookAhead > 0)
+                        {
+                            int otherPlayer = (player + 1) % 2;
+                            AiResult r = AiMove(otherPlayer, brd, state.lookAhead - 1);
+                            if (r.success)
+                            {
+                                score -= r.score;
+                            }
+                            else
+                            {
+                                if (CheckCheck(otherPlayer, brd)) score += 999; // Checkmate.
+                                else score -= 10; // Draw is less desirable...
+                            }
+                        }
+                        state.AddMove(score, new Move(i, n));
+                        if (--counter<=0) return false;
+                    }
+                    state.moves=null;
+                }
+                state.boardLocation += 1;
+            }
+            if (state.possibles.Count == 0)
+            {
+                state.result = new AiResult(0, 0, 0); // No moves. Check or Stalemate.
+            }
+            else
+            {
+                int pick = random.Next(state.possibles.Count);
+                Move m = state.possibles[pick];
+                AiResult result = new AiResult(m.x, m.y, state.bestScore);
+                result.success = true;
+                state.result = result;
+            }
+            return true;
+        }
+
+        public bool isCheck()
+        {
             return CheckCheck(player, boardPos);
         }
 
@@ -255,24 +359,24 @@ namespace RoughChess
         {
             var c = aBoard.Substring(from, 1);
             var destpiece = aBoard.Substring(dest, 1);
-            if (!LegalMove(aPlayer, aBoard,from, dest))
+            if (!LegalMove(aPlayer, aBoard, from, dest))
             {
                 return null;
             }
             aBoard = aBoard.Substring(0, from) + " " + aBoard.Substring(from + 1);
             aBoard = aBoard.Substring(0, dest) + c + aBoard.Substring(dest + 1);
-            if (CheckCheck(aPlayer,aBoard))
+            if (CheckCheck(aPlayer, aBoard))
             {
                 return null;
             }
-            aBoard=CheckPromotion(aPlayer,c, IndexXY(dest),aBoard);
+            aBoard = CheckPromotion(aPlayer, c, IndexXY(dest), aBoard);
             return aBoard;
         }
-        
+
         private int ScorePosition(int aPlayer, string aBoard)
         {
             int result = 0;
-            for (int i=0; i<64; i++)
+            for (int i = 0; i < 64; i++)
             {
                 string piece = aBoard.Substring(i, 1);
                 if (piece == " ") continue;
@@ -284,7 +388,7 @@ namespace RoughChess
 
         private int CalcScore(string piece)
         {
-            switch(piece.ToLower())
+            switch (piece.ToLower())
             {
                 case "p": return 1;
                 case "n":
@@ -297,7 +401,7 @@ namespace RoughChess
         }
 
         // Generate legal piece moves. The 'vision' parameter will be used to generate 'fog of war'
-        List<int> GenerateMoves(string piece, int posfrom, int aplayer, bool vision,string aBoard)
+        List<int> GenerateMoves(string piece, int posfrom, int aplayer, bool vision, string aBoard)
         {
             List<int> result = new List<int>();
             var startpos = IndexXY(posfrom);
@@ -309,9 +413,9 @@ namespace RoughChess
                 case "p": // Pawn. Paradoxically, one of the more complex things to work out.
                     var dir = aplayer == 0 ? -1 : 1; // Are we going up or down the board?
                     newpos = new Position(startpos.x, startpos.y + dir);
-                    if (vision || !IsEnemy(piece, newpos,aBoard)) AddResult(result, newpos);
+                    if (vision || !IsEnemy(piece, newpos, aBoard)) AddResult(result, newpos);
                     newpos = new Position(startpos.x - 1, startpos.y + dir);
-                    if (vision || IsEnemy(piece, newpos,aBoard)) AddResult(result, newpos);
+                    if (vision || IsEnemy(piece, newpos, aBoard)) AddResult(result, newpos);
                     newpos = new Position(startpos.x + 1, startpos.y + dir);
                     if (vision || IsEnemy(piece, newpos, aBoard)) AddResult(result, newpos);
                     if ((aplayer == 0 && startpos.y == 6) || (aplayer == 1 && startpos.y == 1))
@@ -335,12 +439,12 @@ namespace RoughChess
                 case "q": // queen
                     for (var i = 1; i < 8; i++) if (!AddUntilBlocked(result, new Position(startpos.x + i, startpos.y + i), piece, aBoard)) break;
                     for (var i = 1; i < 8; i++) if (!AddUntilBlocked(result, new Position(startpos.x - i, startpos.y + i), piece, aBoard)) break;
-                    for (var i = 1; i < 8; i++) if (!AddUntilBlocked(result, new Position(startpos.x - i, startpos.y - i), piece,aBoard)) break;
-                    for (var i = 1; i < 8; i++) if (!AddUntilBlocked(result, new Position(startpos.x + i, startpos.y - i), piece,aBoard)) break;
-                    for (var i = 1; i < 8; i++) if (!AddUntilBlocked(result, new Position(startpos.x + i, startpos.y), piece,aBoard)) break;
-                    for (var i = 1; i < 8; i++) if (!AddUntilBlocked(result, new Position(startpos.x - i, startpos.y), piece,aBoard)) break;
-                    for (var i = 1; i < 8; i++) if (!AddUntilBlocked(result, new Position(startpos.x, startpos.y + i), piece,aBoard)) break;
-                    for (var i = 1; i < 8; i++) if (!AddUntilBlocked(result, new Position(startpos.x, startpos.y - i), piece,aBoard)) break;
+                    for (var i = 1; i < 8; i++) if (!AddUntilBlocked(result, new Position(startpos.x - i, startpos.y - i), piece, aBoard)) break;
+                    for (var i = 1; i < 8; i++) if (!AddUntilBlocked(result, new Position(startpos.x + i, startpos.y - i), piece, aBoard)) break;
+                    for (var i = 1; i < 8; i++) if (!AddUntilBlocked(result, new Position(startpos.x + i, startpos.y), piece, aBoard)) break;
+                    for (var i = 1; i < 8; i++) if (!AddUntilBlocked(result, new Position(startpos.x - i, startpos.y), piece, aBoard)) break;
+                    for (var i = 1; i < 8; i++) if (!AddUntilBlocked(result, new Position(startpos.x, startpos.y + i), piece, aBoard)) break;
+                    for (var i = 1; i < 8; i++) if (!AddUntilBlocked(result, new Position(startpos.x, startpos.y - i), piece, aBoard)) break;
                     break;
                 case "k": // king
                     for (y = -1; y <= 1; y++)
@@ -376,7 +480,7 @@ namespace RoughChess
             boardPos = CheckPromotion(player, piece, pos, boardPos);
         }
 
-        string CheckPromotion(int aPlayer,string piece, Position pos, string aBoard)
+        string CheckPromotion(int aPlayer, string piece, Position pos, string aBoard)
         {
             if (piece.ToLower() != "p") return aBoard;
             if (aPlayer == 0 && pos.y == 0) aBoard = SetBoardPiece(aBoard, pos.AsIndex(), "Q");
@@ -392,18 +496,18 @@ namespace RoughChess
         }
 
         // Check that a move is legal ... currently a work in progress,
-        bool LegalMove(int aPlayer, string aBoard,int posfrom, int posto)
+        bool LegalMove(int aPlayer, string aBoard, int posfrom, int posto)
         {
             movemessage = "";
-//            if (movemade) return badmove("Not your turn. Hit Hide to let other player move.");
+            //            if (movemade) return badmove("Not your turn. Hit Hide to let other player move.");
             // First, check is current players piece
-            var piece = aBoard.Substring(posfrom,1);
+            var piece = aBoard.Substring(posfrom, 1);
             var allowedpieces = sidepieces[aPlayer];
             if (!allowedpieces.Contains(piece)) return BadMove("Not your piece");
             // See if this move is allowed for this piece.
-            var moves = GenerateMoves(piece, posfrom, aPlayer, false,aBoard);
+            var moves = GenerateMoves(piece, posfrom, aPlayer, false, aBoard);
             if (!moves.Contains<int>(posto)) return BadMove("Not a valid move");
-            if (IsFriendly(piece, IndexXY(posto),aBoard)) return BadMove("Destination is Friendly");
+            if (IsFriendly(piece, IndexXY(posto), aBoard)) return BadMove("Destination is Friendly");
             return true;
         }
 
@@ -428,7 +532,7 @@ namespace RoughChess
             var c = boardPos.Substring(f, 1);
             var oldpos = boardPos;
             var destpiece = boardPos.Substring(t, 1);
-            if (!LegalMove(player,boardPos,f, t))
+            if (!LegalMove(player, boardPos, f, t))
             {
                 ClearSel();
                 return false;
@@ -453,7 +557,7 @@ namespace RoughChess
             return true;
         }
 
-       
+
 
         public bool ExecuteMove(string from, string dest)
         {
@@ -471,11 +575,11 @@ namespace RoughChess
             if (n < 0) return false; // Something has gone horribly wrong...
             for (var i = 0; i < 64; i++)
             {
-                var piece = aBoard.Substring(i,1);
+                var piece = aBoard.Substring(i, 1);
                 var pos = IndexXY(i);
-                if (IsEnemy(p, pos,aBoard))
+                if (IsEnemy(p, pos, aBoard))
                 {
-                    var moves = GenerateMoves(piece, i, enemy, false,aBoard);
+                    var moves = GenerateMoves(piece, i, enemy, false, aBoard);
                     if (moves.Contains<int>(n)) return true;
                 }
             }
